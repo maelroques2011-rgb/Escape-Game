@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le Dernier Méridien – Escape Game</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4efe6;--card:#fffaf0;--ink:#2a2118;--mut:#6f6455;--acc:#9a5b13;--ok:#2e7d4f;--ko:#b3402f;--line:#d9ccb4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#15110d;--card:#211a13;--ink:#efe4d0;--mut:#a89a82;--acc:#e0a24f;--ok:#6fcf97;--ko:#ff8a75;--line:#3a2f22}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#15110d;--card:#211a13;--ink:#efe4d0;--mut:#a89a82;--acc:#e0a24f;--ok:#6fcf97;--ko:#ff8a75;--line:#3a2f22}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Georgia,"Times New Roman",serif}
+main{max-width:760px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px}
+h1{font-size:1.25rem;margin:0;letter-spacing:.04em}
+.stat{font-family:ui-monospace,Menlo,monospace;font-size:.9rem;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-top:16px}
+h2{margin:0 0 6px;font-size:1.15rem;color:var(--acc)}
+.vault{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+.slot{width:34px;height:42px;border:2px solid var(--line);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 1.2rem ui-monospace,monospace}
+
+.slot.on{border-color:var(--acc);color:var(--acc)}
+.clue{background:var(--bg);border-left:4px solid var(--acc);padding:10px 14px;margin:12px 0;font-family:ui-monospace,Menlo,monospace;overflow-x:auto;white-space:pre-wrap}
+input{width:100%;padding:11px;font:inherit;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);cursor:pointer}
+button.alt{background:transparent;color:var(--acc)}
+.msg{min-height:1.5em;margin-top:8px}.ko{color:var(--ko)}.ok{color:var(--ok)}
+.hint{font-size:.93rem;color:var(--mut);margin:6px 0;padding-left:10px;border-left:2px solid var(--line)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:center;font-size:.88rem;color:var(--mut)}
+.tools a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:.88rem}
+.tools a:hover{border-color:var(--acc)}
+p{margin:.6em 0}.mut{color:var(--mut);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🕰️ Le Dernier Méridien</h1><div class="stat" id="stat"></div></header>
+<div class="vault" id="vault" aria-label="Lettres trouvées"></div>
+<div id="game"></div>
+<p class="mut"><button class="alt" id="reset">Recommencer</button></p>
+</main>
+<script>
+var P=[
+{t:"La porte du bureau",s:"Le professeur Aurèle Vasseur a disparu la nuit dernière. Sa porte est verrouillée. Sur son agenda, une page déchirée :\n\n« Mon mot de passe est le jour de la semaine où la Bastille est tombée, le 14 juillet 1789. »\n\nQuel est ce jour ? (en français)",a:["mardi","tuesday"],k:[["timeanddate","https://www.timeanddate.com"]],h:["Utilise un calendrier en ligne et remonte jusqu’à juillet 1789.","C’est le jour qui suit le lundi."],l:"G"},
+{t:"La pyramide",s:"Dans son carnet :\n\n« Cette nuit, j’étais au point 48.8606, 2.3376. Une pyramide de verre. »\n\nDonne le nom de famille de l’architecte qui l’a conçue.",a:["pei"],m:"has",k:[["Google Maps","https://www.google.com/maps"],["Wikipédia","https://fr.wikipedia.org"]],h:["Colle les coordonnées (latitude, longitude) dans la barre de recherche de Google Maps.","Une fois le lieu identifié, ouvre sa page Wikipédia et cherche l’architecte."],l:"R"},
+{t:"Les trois coffrets",s:"Trois coffrets scellés sont gravés des symboles Au, Ag et Pb. Le cadenas demande la somme des numéros atomiques des trois éléments.\n\nQuel nombre composer ?",a:["208"],k:[["Tableau périodique","https://ptable.com"]],h:["Chaque symbole est celui d’un élément chimique : consulte un tableau périodique.","Ce sont l’or, l’argent et le plomb. Additionne leurs numéros atomiques."],l:"A"},
+{t:"Le rendez-vous",s:"Un message : « Retrouve-moi à 18:30, heure de New Delhi. »\n\nTu es à Tokyo. Quelle heure y est-il à ce moment-là ? (format HH:MM, on ignore l’heure d’été)",a:["2200","22h","22h00","22"],k:[["timeanddate","https://www.timeanddate.com"]],h:["Cherche le décalage par rapport à l’UTC de chaque ville.","Une des villes a une demi-heure de décalage. Calcule la différence entre les deux décalages et ajoute-la à 18:30."],l:"E"},
+{t:"L’étiquette",s:"Sur une étagère, une étiquette dans la langue du pays aux mille lacs : le mot « bibliothèque ». Écris-le tel qu’il est sur l’étiquette.",a:["kirjasto"],k:[["Google Traduction","https://translate.google.com"]],h:["Traduis du français vers le finnois.","Le mot commence par k et se termine par « -sto »."],l:"P"},
+{t:"Le signal",s:"Un vieux télégraphe imprime (la barre / sépare les lettres) :\n\n.  /  -  /  ---  /  ..  /  .-..  /  .\n\nQuel est le mot ?",a:["etoile"],k:[["Wikipédia","https://fr.wikipedia.org"]],h:["C’est le code Morse : points, traits, lettres séparées par « / ».","6 lettres, un astre lointain (accent sur la première)."],l:"C"},
+{t:"La carte annotée",s:"Une carte porte une croix rouge aux coordonnées :\n\n51.4769, -0.0005\n\nDans quel quartier de Londres se trouve cette croix ?",a:["greenwich"],m:"has",k:[["Google Maps","https://www.google.com/maps"]],h:["Entre les coordonnées dans Google Maps et lis le nom du lieu repéré.","Un célèbre observatoire s’y trouve et marque le zéro des longitudes."],l:"T"},
+{t:"Les chiffres sur le mur",s:"Sur le mur :\n\n1, 1, 2, 3, 5, 8, 13, 21, …\n\nLe coffre réclame le 20ᵉ terme de cette suite.",a:["6765"],k:[["OEIS","https://oeis.org"]],h:["Chaque terme est la somme des deux précédents. Tu peux aussi identifier la suite sur l’OEIS.","Cette suite porte le nom d’un mathématicien pisan du Moyen Âge."],l:"I"},
+{t:"Le post-it givré",s:"Un post-it : « U+2603 ».\n\nDonne le nom officiel anglais de ce caractère Unicode.",a:["snowman","bonhommedeneige"],k:[["Table Unicode","https://unicode-table.com"]],h:["U+2603 est un point de code : cherche-le dans une table Unicode.","Il fait froid : c’est un personnage de neige."],l:"O"},
+{t:"Le dictionnaire",s:"Dans le tiroir, un vieux dictionnaire ouvert au mot « méridien ». Quelqu’un a entouré son origine et effacé le mot latin :\n\n« du latin ________, qui signifie midi »\n\nQuel est ce nom latin ?",a:["meridies"],k:[["Wiktionnaire","https://fr.wiktionary.org"]],h:["Cherche « méridien » dans un dictionnaire en ligne et lis la section Étymologie.","Remonte jusqu’au nom latin qui signifie « midi » (pas l’adjectif) : il a 8 lettres et se termine par « -ies »."],l:"H"},
+{t:"Les deux savants",s:"Une photo de deux savants, Pierre et Marie Curie, avec ce mot : « Additionne l’écart entre leurs années de naissance et l’écart entre leurs années de décès. »\n\nQuel total ?",a:["36"],k:[["Wikipédia","https://fr.wikipedia.org"]],h:["Cherche les dates de naissance et de décès de chacun.","Marie est née plus tard que Pierre et lui a survécu : fais deux soustractions, puis additionne."],l:"R"},
+{t:"La dernière carte",s:"La carte finale est tachée, mais un point est marqué : -13.1631, -72.5450. Une cité perchée dans les montagnes.\n\nQuelle est la capitale du pays où se trouve ce lieu ?",a:["lima"],k:[["Google Maps","https://www.google.com/maps"],["Wikipédia","https://fr.wikipedia.org"]],h:["Cherche ces coordonnées dans Google Maps (latitude négative = hémisphère sud).","Identifie le pays, puis sa capitale sur Wikipédia."],l:"A"}
+];
+var FH=["Les 12 lettres sont celles de tes fragments, dans le désordre. Elles forment un seul mot qui résume ce que tu as manipulé : cartes, coordonnées, méridien.","C’est l’art et la science de dresser des cartes. Le mot commence par C et se termine par « -IE »."];
+var K="escape-meridien-v2",S={i:0,got:[],hu:{},t:0,end:false},PEN=180;
+try{var r=localStorage.getItem(K);if(r)S=JSON.parse(r)}catch(e){}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+function norm(x){return x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"")}
+function fmt(s){var h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60;return(h?h+"h ":"")+String(m).padStart(2,"0")+"min "+String(c).padStart(2,"0")+"s"}
+function tot(){var n=0;for(var k in S.hu)n+=S.hu[k];return n}
+function esc(x){return x.replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function draw(){
+ var v="";for(var p=0;p<12;p++){var l=S.got[p];v+='<div class="slot'+(l?" on":"")+'">'+(l||"?")+"</div>"}
+ document.getElementById("vault").innerHTML=v;
+ var st=document.getElementById("stat");st.textContent="⏱ "+fmt(S.t+tot()*PEN)+" · énigme "+Math.min(S.i+1,P.length)+"/"+P.length+" · indices "+tot();
+ var g=document.getElementById("game");
+ if(S.end){var tt=S.t+tot()*PEN,m=Math.round(tt/60);
+  g.innerHTML='<div class="card"><h2>🔓 Évadé !</h2><p>Le mot <b>CARTOGRAPHIE</b> fait tourner la serrure. Derrière le coffre, un message : Aurèle Vasseur t’attend à l’observatoire de Greenwich. Il avait tout organisé pour tester qui oserait suivre sa trace.</p><p><b>Temps total : '+m+' min</b> (chrono '+fmt(S.t)+' + '+tot()+' indice(s) × 3 min).</p><p class="mut">'+(m<45?"Brillant : moins de 45 minutes.":m<75?"Très bon : dans la moyenne.":"Bravo : tu as tenu bon jusqu’au bout.")+"</p></div>";return}
+ if(S.i>=P.length){
+  var f=S.hu.f||0,fh="";for(var j=0;j<f;j++)fh+='<div class="hint">Indice '+(j+1)+" : "+FH[j]+"</div>";
+  g.innerHTML='<div class="card"><h2>Le coffre final</h2><p>Les 12 fragments sont réunis, mais dans l’ordre où tu les as trouvés, donc mélangés. Un seul mot de 12 lettres les utilise tous.</p><input id="in" autocomplete="off" placeholder="Mot de 12 lettres"><div class="row"><button id="ok">Ouvrir</button><button class="alt" id="hn"'+(f>=2?" disabled":"")+'>Indice (+3 min)</button></div><div class="msg" id="msg"></div>'+fh+"</div>";
+  document.getElementById("hn").onclick=function(){S.hu.f=f+1;save();draw()};
+  document.getElementById("ok").onclick=function(){if(norm(document.getElementById("in").value)==="cartographie"){S.end=true;save();draw()}else{var m=document.getElementById("msg");m.className="msg ko";m.textContent="Le coffre reste fermé."}};return}
+ var q=P[S.i],n=S.hu[S.i]||0,hh="";
+ for(var j=0;j<n;j++)hh+='<div class="hint">Indice '+(j+1)+" : "+q.h[j]+"</div>";
+ g.innerHTML='<div class="card"><h2>Énigme '+(S.i+1)+" – "+q.t+"</h2><div class=\"clue\">"+esc(q.s)+'</div><div class="tools">Site utile : '+q.k.map(function(x){return '<a href="'+x[1]+'" target="_blank" rel="noopener">'+x[0]+' ↗</a>'}).join("")+'</div><input id="in" autocomplete="off" placeholder="Ta réponse"><div class="row"><button id="ok">Valider</button><button class="alt" id="hn"'+(n>=2?" disabled":"")+'>Indice (+3 min)</button></div><div class="msg" id="msg"></div>'+hh+"</div>";
+ var inp=document.getElementById("in");
+ function go(){var a=norm(inp.value),m=document.getElementById("msg"),ok=q.a.some(function(x){return q.m==="has"?a.indexOf(x)>-1:a===x});
+  if(!a)return;
+  if(ok){S.got.push(q.l);S.i++;save();alert_frag(q)}else{m.className="msg ko";m.textContent="Ce n’est pas ça. Relis l’énigme et cherche ailleurs."}}
+ document.getElementById("ok").onclick=go;
+ inp.onkeydown=function(e){if(e.key==="Enter")go()};
+ document.getElementById("hn").onclick=function(){S.hu[S.i]=n+1;save();draw()};
+}
+function alert_frag(q){
+ var g=document.getElementById("game");
+ g.innerHTML='<div class="card"><h2>✔ Résolu</h2><p>Un compartiment s’ouvre et révèle un fragment : la lettre <b>'+q.l+"</b>. Les lettres sont rangées dans l’ordre où tu les trouves : à toi de les remettre en ordre à la fin.</p><div class=\"row\"><button id=\"nx\">"+(S.i>=P.length?"Aller au coffre":"Énigme suivante")+"</button></div></div>";
+ var sl=document.getElementById("vault").querySelectorAll(".slot")[S.got.length-1];sl.classList.add("on");sl.textContent=q.l;
+ document.getElementById("nx").onclick=draw;
+}
+setInterval(function(){if(!S.end){S.t++;if(S.t%5===0)save();var st=document.getElementById("stat");st.textContent="⏱ "+fmt(S.t+tot()*PEN)+" · énigme "+Math.min(S.i+1,P.length)+"/"+P.length+" · indices "+tot()}},1000);
+document.getElementById("reset").onclick=function(){if(confirm("Tout recommencer ?")){S={i:0,got:[],hu:{},t:0,end:false};save();draw()}};
+draw();
+</script>
+</body>
+</html>
